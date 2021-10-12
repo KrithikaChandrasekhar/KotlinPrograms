@@ -1,0 +1,143 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url 'https://plugins.gradle.org/m2/'
+        }
+    }
+    dependencies {
+        classpath 'name.remal:gradle-plugins:1.5.1'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:3.3'
+        classpath 'info.solidsoft.gradle.pitest:gradle-pitest-plugin:1.7.0'
+        classpath 'org.jetbrains.kotlin:kotlin-allopen:1.5.31'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.31'
+        classpath 'org.jetbrains.kotlin:kotlin-noarg:1.5.31'
+        classpath 'io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.18.1'
+        classpath 'org.jlleitschuh.gradle:ktlint-gradle:10.2.0'
+    }
+}
+
+plugins {
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+}
+
+allprojects {
+    repositories {
+        jcenter()
+    }
+}
+
+subprojects {
+    apply plugin: 'io.spring.dependency-management'
+
+    version '0.0.1-SNAPSHOT'
+    dependencyManagement {
+        dependencies {
+            dependency 'com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0'
+            dependencySet(group: 'io.cucumber', version: '7.0.0') {
+                entry 'cucumber-java'
+                entry 'cucumber-junit'
+                entry 'cucumber-junit-platform-engine'
+            }
+            dependencySet(group: 'org.junit.jupiter', version: '5.8.1') {
+                entry 'junit-jupiter'
+                entry 'junit-jupiter-api'
+                entry 'junit-jupiter-engine'
+                entry 'junit-jupiter-params'
+            }
+            dependencySet(group: 'org.junit.platform', version: '1.8.1') {
+                entry 'junit-platform-commons'
+                entry 'junit-platform-engine'
+            }
+            dependency 'org.junit.vintage:junit-vintage-engine:5.8.1'
+            dependency 'org.mockito:mockito-core:4.0.0'
+            dependency 'org.pitest:pitest-junit5-plugin:0.15'
+            dependency 'org.pitest:pitest-command-line:1.7.1'
+        }
+    }
+}
+
+configure(subprojects) {
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    apply plugin: 'jacoco'
+    apply plugin: 'name.remal.sonarlint'
+    apply plugin: 'org.sonarqube'
+    apply plugin: 'info.solidsoft.pitest'
+    apply plugin: 'io.gitlab.arturbosch.detekt'
+    apply plugin: 'org.jlleitschuh.gradle.ktlint'
+
+    sourceCompatibility = 14
+
+    dependencies {
+        implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+
+        testImplementation 'io.cucumber:cucumber-java'
+        testImplementation 'io.cucumber:cucumber-junit'
+        testImplementation 'io.cucumber:cucumber-junit-platform-engine'
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.junit.jupiter:junit-jupiter-api'
+        testImplementation 'org.junit.jupiter:junit-jupiter-engine'
+        testImplementation 'org.junit.jupiter:junit-jupiter-params'
+        testImplementation 'org.junit.platform:junit-platform-commons'
+        testImplementation 'org.junit.platform:junit-platform-engine'
+        testImplementation 'org.mockito:mockito-core'
+
+        pitest 'org.pitest:pitest-junit5-plugin'
+        pitest 'org.pitest:pitest-command-line'
+    }
+
+    jacoco {
+        toolVersion = "0.8.6"
+    }
+
+    jacocoTestCoverageVerification {
+        violationRules {
+            rule {
+                limit {
+                    minimum = 1.0
+                }
+            }
+        }
+    }
+    check.dependsOn jacocoTestCoverageVerification
+
+    jacocoTestReport {
+        reports {
+            xml.enabled true
+            csv.enabled true
+            html.enabled true
+        }
+    }
+    test.finalizedBy jacocoTestReport
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            freeCompilerArgs = ['-Xjsr305=strict']
+            jvmTarget = '14'
+        }
+    }
+
+    ktlint {
+        version.set("0.40.0")
+    }
+
+    pitest {
+        targetClasses.set(['com.nelkinda.template.*']) // TODO change
+        pitestVersion.set('1.7.1')
+        timestampedReports.set(false)
+        testPlugin.set('junit5')
+        outputFormats.set(['XML', 'HTML'])
+        mutators.set(['DEFAULTS', 'STRONGER', 'CONSTRUCTOR_CALLS', 'INLINE_CONSTS', 'REMOVE_CONDITIONALS', 'REMOVE_INCREMENTS'])
+        mutationThreshold.set(100)
+        coverageThreshold.set(100)
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+wrapper {
+    gradleVersion '7.2'
+    distributionType = Wrapper.DistributionType.ALL
+}
